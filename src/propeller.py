@@ -1,27 +1,30 @@
 class Propeller:
     def __init__(self, r, dir):
         #variables
-       self.r   = r
-       self.dir = dir
-       self.omega =0  #rotor angular velocity
-       self.vi =0  #induced velocity
-       self.vel = np.empty(3) #velocity relative to propeller in prop frame (forward, right, down)
-       self.mu =0
-       self.alpha_s
-       self.state = {
-         "T" : 0, #Thrust
-         "H" : 0, #Hforce
-         "Q" : 0, #Torque
-         "a0": 0, #conning angle
-         "a1s": 0, #lateral flapping angle
-         "b1s": 0 #longitudinal flapping angle
-       }
+        self.r   = r
+        self.dir = dir
+        self.omega =0  #rotor angular velocity
+        self.vi =0  #induced velocity
+        self.vel = np.empty(3) #velocity relative to propeller in prop frame (forward, right, down)
+        self.att = np.empty(3) #angular velocity relative to propeller in prop frame (forward, right, down)
+        self.mu =0
+        self.alpha_s=0
+        self.state = {
+            "T" : 0, #Thrust
+            "H" : 0, #Hforce
+            "Q" : 0, #Torque
+            "a0": 0, #conning angle
+            "a1s": 0, #lateral flapping angle
+            "b1s": 0 #longitudinal flapping angle
+        }
+        self.Force = np.empty(3)
+        self.Torque = np.empty(3)
    
   '''
   BEM calculation functions.
-  reverse engineered from UZH NeuroBEM matlab code
+  reverse engineered from UZH NeuroBEM matlab and cpp code
   '''
-  def _BEM_calc_a0(self, pdot, qdot):
+  def _BEM_calc_a0(self):
     R = blade_params['radius']
     a = blade_params['a']
     c = blade_params['mean_chord']
@@ -36,6 +39,8 @@ class Propeller:
     v1 = self.vi
     mu = self.mu
     alpha_s = self.alpha_s
+    pdot = self.att[0]
+    qdot = self.att[1]
     #WARNING!! DO NOT TOUCH LOOK AT OR ATTEMPT TO UNDERSTAND THIS:
     a0 = -(((135*R**13*a**3*c**3*acc_g**2*mu**6*rho_air**3*th0 + 90*R**13*a**3*c**3*acc_g**2*mu**6*rho_air**3*th1 - 810*R**12*a**3*c**3*e*acc_g**2*mu**6*rho_air**3*th0 - 630*R**12*a**3*c**3*e*acc_g**2*mu**6*rho_air**3*th1 +
            2025*R**11*a**3*c**3*e**2*acc_g**2*mu**6*rho_air**3*th0 + 1890*R**11*a**3*c**3*e**2*acc_g**2*mu**6*rho_air**3*th1 - 2700*R**10*a**3*c**3*e**3*acc_g**2*mu**6*rho_air**3*th0 - 3150*R**10*a**3*c**3*e**3*acc_g**2*mu**6*rho_air**3*th1 +
@@ -110,7 +115,7 @@ class Propeller:
                          4*a**2*c**2*e**8*acc_g**3*k_beta*rho_air**2)*Omega**4 + (2304*Ib *Mb**2*e**2*acc_g + 4608*Ib *Mb*e*acc_g**2*k_beta + 2304*Ib *acc_g**3*k_beta**2 + 2304*Mb**3*e**3 + 4608*Mb**2*e**2*acc_g*k_beta + 2304*Mb*e*acc_g**2*k_beta**2)*Omega**2 + 2304*Mb**2*e**2*acc_g*k_beta + 4608*Mb*e*acc_g**2*k_beta**2 + 2304*acc_g**3*k_beta**3))
       self.state['a0'] = a0
 
-    def _BEM_calc_a1s(self, p, q):
+    def _BEM_calc_a1s(self):
       R = blade_params['radius']
       a = blade_params['a']
       c = blade_params['mean_chord']
@@ -125,7 +130,9 @@ class Propeller:
       v1 = self.vi
       mu = self.mu
       alpha_s = self.alpha_s
-      
+      p = self.att[0]
+      q = self.att[1]
+        
       #WARNING!! DO NOT TOUCH LOOK AT OR ATTEMPT TO UNDERSTAND THIS:
       a1s = -2*((-90*Ib*R**9*a*alpha_s*c*acc_g**2*mu**4*rho_air + 360*Ib*R**8*a*alpha_s*c*e*acc_g**2*mu**4*rho_air - 540*Ib*R**7*a*alpha_s*c*e**2*acc_g**2*mu**4*rho_air +  360*Ib*R**6*a*alpha_s*c*e**3*acc_g**2*mu**4*rho_air - 90*Ib*R**5*a*alpha_s*c*e**4*acc_g**2*mu**4*rho_air - 90*Mb*R**9*a*alpha_s*c*e*acc_g*mu**4*rho_air +  360*Mb*R**8*a*alpha_s*c*e**2*acc_g*mu**4*rho_air - 540*Mb*R**7*a*alpha_s*c*e**3*acc_g*mu**4*rho_air +
              360*Mb*R**6*a*alpha_s*c*e**4*acc_g*mu**4*rho_air - 90*Mb*R**5*a*alpha_s*c*e**5*acc_g*mu**4*rho_air - 120*Ib*R**9*a*c*acc_g**2*mu**3*rho_air*th0 - 90*Ib*R**9*a*c*acc_g**2*mu**3*rho_air*th1 + 420*Ib*R**8*a*c*e*acc_g**2*mu**3*rho_air*th0 + 420*Ib*R**8*a*c*e*acc_g**2*mu**3*rho_air*th1 - 480*Ib*R**7*a*c*e**2*acc_g**2*mu**3*rho_air*th0 - 750*Ib*R**7*a*c*e**2*acc_g**2*mu**3*rho_air*th1 + 120*Ib*R**6*a*c*e**3*acc_g**2*mu**3*rho_air*th0 +
@@ -169,22 +176,24 @@ class Propeller:
 
 
       self.state['a1s'] = a1s
-    def _BEM_calc_b1s(self, p, q):
-    R = blade_params['radius']
-    a = blade_params['a']
-    c = blade_params['mean_chord']
-    e = blade_params['e']
-    th0 = blade_params['theta_0']
-    th1 = blade_params['theta_1']
-    k_beta = blade_params['k_beta']
-    Mb = blade_params['Mb']
-    Ib = blade_params['Ib']
-    K = blade_params['K']
-    Omega = self.omega
-    v1 = self.vi
-    mu = self.mu
+    def _BEM_calc_b1s(self):
+        R = blade_params['radius']
+        a = blade_params['a']
+        c = blade_params['mean_chord']
+        e = blade_params['e']
+        th0 = blade_params['theta_0']
+        th1 = blade_params['theta_1']
+        k_beta = blade_params['k_beta']
+        Mb = blade_params['Mb']
+        Ib = blade_params['Ib']
+        K = blade_params['K']
+        Omega = self.omega
+        v1 = self.vi
+        mu = self.mu
+        p = self.att[0]
+        q = self.att[1]
   #WARNING!! DO NOT TOUCH LOOK AT OR ATTEMPT TO UNDERSTAND THIS:
-    b1s =-rho_air*Omega*a*c*acc_g*((90*R**13*a**2*c**2*acc_g**2*mu**5*rho_air**2*th0 + 60*R**13*a**2*c**2*acc_g**2*mu**5*rho_air**2*th1 - 495*R**12*a**2*c**2*e*acc_g**2*mu**5*rho_air**2*th0 - 390*R**12*a**2*c**2*e*acc_g**2*mu**5*rho_air**2*th1 + 1080*R**11*a**2*c**2*e**2*acc_g**2*mu**5*rho_air**2*th0 + 1050*R**11*a**2*c**2*e**2*acc_g**2*mu**5*rho_air**2*th1 - 1125*R**10*a**2*c**2*e**3*acc_g**2*mu**5*rho_air**2*th0 - 1470*R**10*a**2*c**2*e**3*acc_g**2*mu**5*rho_air**2*th1 +
+        b1s =-rho_air*Omega*a*c*acc_g*((90*R**13*a**2*c**2*acc_g**2*mu**5*rho_air**2*th0 + 60*R**13*a**2*c**2*acc_g**2*mu**5*rho_air**2*th1 - 495*R**12*a**2*c**2*e*acc_g**2*mu**5*rho_air**2*th0 - 390*R**12*a**2*c**2*e*acc_g**2*mu**5*rho_air**2*th1 + 1080*R**11*a**2*c**2*e**2*acc_g**2*mu**5*rho_air**2*th0 + 1050*R**11*a**2*c**2*e**2*acc_g**2*mu**5*rho_air**2*th1 - 1125*R**10*a**2*c**2*e**3*acc_g**2*mu**5*rho_air**2*th0 - 1470*R**10*a**2*c**2*e**3*acc_g**2*mu**5*rho_air**2*th1 +
                                   450*R**9*a**2*c**2*e**4*acc_g**2*mu**5*rho_air**2*th0 + 1050*R**9*a**2*c**2*e**4*acc_g**2*mu**5*rho_air**2*th1 + 135*R**8*a**2*c**2*e**5*acc_g**2*mu**5*rho_air**2*th0 - 210*R**8*a**2*c**2*e**5*acc_g**2*mu**5*rho_air**2*th1 - 180*R**7*a**2*c**2*e**6*acc_g**2*mu**5*rho_air**2*th0 - 210*R**7*a**2*c**2*e**6*acc_g**2*mu**5*rho_air**2*th1 + 45*R**6*a**2*c**2*e**7*acc_g**2*mu**5*rho_air**2*th0 + 150*R**6*a**2*c**2*e**7*acc_g**2*mu**5*rho_air**2*th1 -
                                   30*R**5*a**2*c**2*e**8*acc_g**2*mu**5*rho_air**2*th1 + 120*R**13*a**2*alpha_s*c**2*acc_g**2*mu**4*rho_air**2 - 960*R**12*a**2*alpha_s*c**2*e*acc_g**2*mu**4*rho_air**2 + 3090*R**11*a**2*alpha_s*c**2*e**2*acc_g**2*mu**4*rho_air**2 - 5100*R**10*a**2*alpha_s*c**2*e**3*acc_g**2*mu**4*rho_air**2 + 4350*R**9*a**2*alpha_s*c**2*e**4*acc_g**2*mu**4*rho_air**2 - 1320*R**8*a**2*alpha_s*c**2*e**5*acc_g**2*mu**4*rho_air**2 - 690*R**7*a**2*alpha_s*c**2*e**6*acc_g**2*mu**4*rho_air**2 +
                                   660*R**6*a**2*alpha_s*c**2*e**7*acc_g**2*mu**4*rho_air**2 - 150*R**5*a**2*alpha_s*c**2*e**8*acc_g**2*mu**4*rho_air**2 - 90*R**13*a**2*c**2*acc_g**2*mu**3*rho_air**2*th0 - 48*R**13*a**2*c**2*acc_g**2*mu**3*rho_air**2*th1 + 195*R**12*a**2*c**2*e*acc_g**2*mu**3*rho_air**2*th0 + 68*R**12*a**2*c**2*e*acc_g**2*mu**3*rho_air**2*th1 + 420*R**11*a**2*c**2*e**2*acc_g**2*mu**3*rho_air**2*th0 + 678*R**11*a**2*c**2*e**2*acc_g**2*mu**3*rho_air**2*th1 -
@@ -224,10 +233,53 @@ class Propeller:
                                             48*Mb*R**4*a**2*c**2*e**5*acc_g**2*mu**2*rho_air**2 - 48*Mb*R**3*a**2*c**2*e**6*acc_g**2*mu**2*rho_air**2 + 24*Mb*R**2*a**2*c**2*e**7*acc_g**2*mu**2*rho_air**2 + 48*R**7*a**2*c**2*e*acc_g**3*k_beta*mu**2*rho_air**2 - 168*R**6*a**2*c**2*e**2*acc_g**3*k_beta*mu**2*rho_air**2 + 192*R**5*a**2*c**2*e**3*acc_g**3*k_beta*mu**2*rho_air**2 - 48*R**4*a**2*c**2*e**4*acc_g**3*k_beta*mu**2*rho_air**2 - 48*R**3*a**2*c**2*e**5*acc_g**3*k_beta*mu**2*rho_air**2 +
                                             24*R**2*a**2*c**2*e**6*acc_g**3*k_beta*mu**2*rho_air**2 + 36*R**8*a**2*c**2*acc_g**3*k_beta*rho_air**2 - 192*R**7*a**2*c**2*e*acc_g**3*k_beta*rho_air**2 + 400*R**6*a**2*c**2*e**2*acc_g**3*k_beta*rho_air**2 - 384*R**5*a**2*c**2*e**3*acc_g**3*k_beta*rho_air**2 + 120*R**4*a**2*c**2*e**4*acc_g**3*k_beta*rho_air**2 + 64*R**3*a**2*c**2*e**5*acc_g**3*k_beta*rho_air**2 - 48*R**2*a**2*c**2*e**6*acc_g**3*k_beta*rho_air**2 + 4*a**2*c**2*e**8*acc_g**3*k_beta*rho_air**2)*Omega**4 +
                                              (2304*Ib*Mb**2*e**2*acc_g + 4608*Ib*Mb*e*acc_g**2*k_beta + 2304*Ib*acc_g**3*k_beta**2 + 2304*Mb**3*e**3 + 4608*Mb**2*e**2*acc_g*k_beta + 2304*Mb*e*acc_g**2*k_beta**2)*Omega**2 + 2304*Mb**2*e**2*acc_g*k_beta + 4608*Mb*e*acc_g**2*k_beta**2 + 2304*acc_g**3*k_beta**3))
-      self.state['b1s'] =  b1s
+          self.state['b1s'] =  b1s
 
       
 
+    def _BEM_T_calc(self, _vi):
+        #integrator params. fix later
+        prop_state = {
+            "a0":   a0,
+            "a1s":  a1s,
+            "b1s":  b1s,
+            "Omega": Omega,
+            "mu":   mu,
+            "vi":   vi,
+            "Vver": Vz,
+        }
+        T_integral = do_integral(diffThrust, prop_state)
+        T_c = 3 * rho_air / (4*np.pi) * T_integral
+        return T_c
+    def _BEM_H_calc(self):
+        #integrator params. fix later
+        prop_state = {
+            "a0":   a0,
+            "a1s":  a1s,
+            "b1s":  b1s,
+            "Omega": Omega,
+            "mu":   mu,
+            "vi":   vi,
+            "Vver": Vz,
+        }
+        H_integral = do_integral(diffHforce, prop_state)
+        H_c = 3 * rho_air / (4*np.pi) * H_integral
+        return H_c
+    def _BEM_Q_calc(self):
+        #integrator params. fix later
+        prop_state = {
+            "a0":   a0,
+            "a1s":  a1s,
+            "b1s":  b1s,
+            "Omega": Omega,
+            "mu":   mu,
+            "vi":   vi,
+            "Vver": Vz,
+        }
+        Q_integral = do_integral(diffTorque, prop_state)
+        Q_c = 3 * rho_air / (4*np.pi) * Q_integral
+        return Q_c
+    
     def _BEM_VRS_correction(self,Vz, Vh):
       k0=1;
       k1=-1.125
@@ -242,8 +294,8 @@ class Propeller:
       K = blade_params['K']
       R = blade_params['radius']
       Vhor = self.mu*(self.omega*R)
-      Vver = self.vel[2] + _vi
-      T_BEM = BEM_T_calc(Vx, Vy, Vz ,K,mu,Omega,_vi,0,0,0)
+      Vver = self.vel[2] - _vi
+      T_BEM = BEM_T_calc(_vi)
       T_M =  2 * rho_air * A * _vi * np.sqrt(Vhor**2 + Vver**2)
       res = T_BEM - T_M
       return res
@@ -257,8 +309,38 @@ class Propeller:
         v2 = _BEM_VRS_correction(vz,vh)
         v1 = max(v1,v2)
         self.vel[2] = -vz
-      self.vi = v1
+      return v1
+    def _update(self):
+        self.vi = _BEM_calc_vi()
+      
+        self.state['a0'] = _BEM_calc_a0()
+        self.state['a1s']= _BEM_calc_a1s()
+        self.state['b1s']= _BEM_calc_b1s()
+        self.state['T']  = _BEM_T_calc(self.vi)
+        self.state['H']  = _BEM_H_calc()
+        self.state['Q']  = _BEM_Q_calc()
   
+        sgn2 = self.dir
+        sgn1 = -self.dir
+        self.Force = [
+          -(self.state['H'] + np.sin(self.state['a1s'])*self.state['T']),
+          sgn1*np.sin(self.state['b1s'])*self.state['T'],
+          -self.state['T']*np.cos(self.state['a0']]
+        self.Torque = [ 
+          sgn1*blade_params['k_beta']*self.state['b1s'],
+          blade_params['k_beta']*self.state['a1s'],
+          sgn2*self.state['Q']]
+
+    def SetVelocity(self, motOmega, Vel_CM, att_body):
+        R = blade_params['radius']
+        self.omega = motOmega
+        self.vel = FLU_to_FRD(Vel_CM + np.cross(att_body,self.r))
+        self.att = FLU_to_FRD(att_body)
+
+        Vhor = np.sqrt(self.vel[0]**2 + self.vel[1]**2)
+        self.mu = Vhor/(self.omega*R)
+        self.alpha_s = np.atan2(self.vel[2], Vhor)
+        _update()
  
 
 
