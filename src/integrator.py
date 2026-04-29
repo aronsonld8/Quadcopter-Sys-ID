@@ -2,7 +2,8 @@ class Integrator:
   def __init__(n_r, n_th, blade_params):
     self.n_r = n_r
     self.n_th = n_th
-
+    self.IntFactor = 3 * rho_air / (4*np.pi)
+    
     #blade param constants
     self.R = blade_params['radius']
     self.K = blade_params['K']
@@ -62,5 +63,38 @@ class Integrator:
         temp = [-np.sin(phi), np.cos(phi), r]
       return F*(temp[0]*dL + temp[1]*dD)*temp[2]
 
+  def _diffThrust(self,r,Psi):
+    return self.diffElement(r, Psi, 'T')
+  def _diffHforce(self,r,Psi):
+    return self._diffElement(r, Psi, 'H')
+  def _diffQtorque(self,r,Psi):
+    return self._diffElement(r, Psi, 'Q')
+
+  def _do_integral(self, func):
+    ans_calc = 0
+    for i in range(self.n_r):
+      for j in range(self.n_th):
+        r = self.r_points[i]
+        th = self.th_points[j]
+        ans_calc += self.r_weights[i] * self.th_weights[j] * func(r,th)
+    return ans_calc  
+
+  #public members
+  def update_state(self, params):
+    self.a0    = params['a0']
+    self.a1s   = params['a1s']
+    self.b1s   = params['b1s']
+    self.omega = params['omega']
+    self.mu    = params['mu']
+    self.Vz    = params['Vz']
+    self.vi    = params['vi']
+  def getThrust(self):
+    T = self._do_integral(self._diffThrust)
+    return self.IntFactor*T
+  def getHforce(self):
+    H = self._do_integral(self._diffHforce)
+    return self.IntFactor*H
+  def getQtorque(self):
+    Q = self._do_integral(self._diffQtorque)
+    return self.IntFactor*Q
     
-        
