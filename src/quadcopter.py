@@ -1,3 +1,4 @@
+import parameters
 from integrator import Integrator
 from propeller import Propeller
 
