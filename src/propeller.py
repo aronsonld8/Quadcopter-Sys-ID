@@ -1,6 +1,11 @@
+import parameters
 from integrator import Integrator
 
-vi_init = 7.62
+#ref frame transforms
+def FLU_to_FRD(vector_FLU):
+  return [vector_FLU[0], -vector_FLU[1], -vector_FLU[2]]
+def FRD_to_FLU(vector_FRD):
+  return [vector_FRD[0], -vector_FRD[1], -vector_FRD[2]]
 
 class Propeller:
     def __init__(self, r, dir, int_instance: Integrator):
@@ -27,7 +32,7 @@ class Propeller:
   BEM calculation functions.
   reverse engineered from UZH NeuroBEM matlab and cpp code
   '''
-    def BEM_calc_a0(self):
+    def _BEM_calc_a0(self):
         Omega = np.ones(7)
         mu = np.ones(7)
         for i in range(1,7):
@@ -138,10 +143,8 @@ class Propeller:
       v2 = Vh*(k0 + k1*(r) + k2*(r)**2 + k3*(r)**3 + k4*(r)**4)
       return v2
     def _BEM_vi_costfunc(self, _vi):
-      A = blade_params['Area']
-      K = blade_params['K']
       R = blade_params['radius']
-      Vhor = self.state.mu*(self.state.omega*R)
+      Vhor = self.state.mu*(self.state.omega*blade_params['radius'])
       Vver = self.vel[2] - _vi
       self.state=['vi'] = _v1
       T_BEM = BEM_T_calc()
@@ -200,8 +203,8 @@ class Propeller:
         _update()
 
     def GetForce(self):
-        return self.Force
+        return FRD_to_FLU(self.Force)
     def GetTorque(self):
-        return self.Torque
+        return FRD_to_FLU(self.Torque)
 
 
