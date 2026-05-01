@@ -1,13 +1,4 @@
-#main constants
-f_s = 400
-etol = 1.0e-3
-vi_init = 7.62
-acc_g = 9.81
-rho_air = 1.204
-dx = 0.078  #m
-dy = 0.1    #m  
-dz = 0.027  #m
-
+import common
 
 #blade
 blade_params ={
