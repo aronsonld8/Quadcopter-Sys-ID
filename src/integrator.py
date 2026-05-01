@@ -1,5 +1,7 @@
+import parameters
+
 class Integrator:
-  def __init__(n_r, n_th, blade_params):
+  def __init__(n_r, n_th):
     self.n_r = n_r
     self.n_th = n_th
     self.IntFactor = 3 * rho_air / (4*np.pi)
@@ -80,14 +82,14 @@ class Integrator:
     return ans_calc  
 
   #public members
-  def update_state(self, params):
-    self.a0    = params['a0']
-    self.a1s   = params['a1s']
-    self.b1s   = params['b1s']
-    self.omega = params['omega']
-    self.mu    = params['mu']
-    self.Vz    = params['Vz']
-    self.vi    = params['vi']
+  def update_state(self, pstate):
+    self.a0    = pstate['a0']
+    self.a1s   = pstate['a1s']
+    self.b1s   = pstate['b1s']
+    self.omega = pstate['omega']
+    self.mu    = pstate['mu']
+    self.Vz    = pstate['Vz']
+    self.vi    = pstate['vi']
   def getThrust(self):
     T = self._do_integral(self._diffThrust)
     return self.IntFactor*T
