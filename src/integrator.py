@@ -2,9 +2,9 @@ import common
 import parameters
 
 class Integrator:
-  def __init__(n_r, n_th):
-    self.n_r = n_r
-    self.n_th = n_th
+  def __init__(self, prop_state):
+    self.n_r = INTEGRATOR_RADIAL_POINTS
+    self.n_th = INTEGRATOR_AZIMUTHAL_POINTS
     self.IntFactor = 3 * rho_air / (4*np.pi)
     
     #blade param constants
@@ -18,13 +18,7 @@ class Integrator:
     self.theta_1 = blade_params['theta_1']
 
     #prop state variables
-    self.a0  = 0
-    self.a1s = 0
-    self.b1s = 0
-    self.omega = 0
-    self.mu = 0
-    self.Vz = 0
-    self.vi = 0
+    self.prop_state = prop_state
 
     #get points,weights
     points_r, weights_r = np.polynomial.legendre.leggauss(n_r)
@@ -39,16 +33,21 @@ class Integrator:
 
   def _diffElement(r, Psi, type='T'):
       r_ratio = r/self.R
+      a0    = self.prop_state[0]
+      a1s   = self.prop_state[1]
+      b1s   = self.prop_state[2]
+      omega = self.prop_state[3]
+      mu    = self.prop_state[4]
+      Vz    = self.prop_state[5]
+      vi    = self.prop_state[6]
       sPsi = np.sin(Psi)
       cPsi = np.cos(Psi)
 
-      beta = self.a0 -  self.a1s*cPsi - self.b1s*sPsi
-      U_T = self.omega * (r + self.R*self.mu*sPsi)
+      beta = a0 -  a1s*cPsi - b1s*sPsi
+      U_T = omega * (r + self.R*mu*sPsi)
       corr = self.K*r_ratio*cPsi
-      U_P = self.Vz - self.vi*(1+corr) - r*self.omega*(self.a1s*sPsi + self.b1s*cPsi) - self.Vz*self.beta*cPsi
+      U_P = Vz - vi*(1+corr) - r*omega*(a1s*sPsi + b1s*cPsi) - Vz*beta*cPsi
       phi = np.atan2(U_P,U_T)
-      f = 1.5 * (1 - r_ratio) / (r_ratio*np.abs(np.sin(phi)) + 1.0e-8)
-      F = 2/np.pi * np.arccos(np.exp(-f))
       U2 = U_T**2 + U_P**2
       alpha = self.theta_0 + (self.theta_1 * r_ratio) + phi;
       _cl = self.cl*np.sin(alpha)*np.cos(alpha);
@@ -64,7 +63,7 @@ class Integrator:
         temp = [-np.sin(phi), np.cos(phi), sPsi]
       elif type == 'Q':
         temp = [-np.sin(phi), np.cos(phi), r]
-      return F*(temp[0]*dL + temp[1]*dD)*temp[2]
+      return (temp[0]*dL + temp[1]*dD)*temp[2]
 
   def _diffThrust(self,r,Psi):
     return self.diffElement(r, Psi, 'T')
@@ -83,14 +82,6 @@ class Integrator:
     return ans_calc  
 
   #public members
-  def update_state(self, pstate):
-    self.a0    = pstate['a0']
-    self.a1s   = pstate['a1s']
-    self.b1s   = pstate['b1s']
-    self.omega = pstate['omega']
-    self.mu    = pstate['mu']
-    self.Vz    = pstate['Vz']
-    self.vi    = pstate['vi']
   def getThrust(self):
     T = self._do_integral(self._diffThrust)
     return self.IntFactor*T
