@@ -11,21 +11,24 @@ def FRD_to_FLU(vector_FRD):
 class Propeller:
     def __init__(self, r, dir):
         #variables
-        Integrator solver()
-        self._solver = solver
         self.r   = r
         self.dir = dir
         self.vel = np.empty(3) #velocity relative to propeller in prop frame (forward, right, down)
         self.att = np.empty(3) #angular velocity relative to propeller in prop frame (forward, right, down)
         self.alpha_s=0
-        self.a0  = 0   #conning angle
-        self.a1s = 0  #lateral flapping angle
-        self.b1s = 0  #longitudinal flapping angle
-        self.omega = 0   #rotor angular velocity
-        self.mu = 0   #adv ratio
-        self.Vz = 0   #verical velocity
-        self.vi = 0   #induced velocity
-        
+      
+        #prop state
+      '''
+        a0    = self.prop_state[0] #conning angle
+        a1s   = self.prop_state[1] #lateral flapping angle
+        b1s   = self.prop_state[2] #longitudinal flapping angle
+        omega = self.prop_state[3] #rotor angular velocity
+        mu    = self.prop_state[4] #adv ratio
+        Vz    = self.prop_state[5] #verical velocity
+        vi    = self.prop_state[6] #induced velocity
+      '''
+        self.prop_state = [0]*7
+        self._solver = Integrator(self.prop_state)
         self.Force = np.empty(3)
         self.Torque = np.empty(3)
    
@@ -37,14 +40,14 @@ class Propeller:
         Omega = np.ones(7)
         mu = np.ones(7)
         for i in range(1,7):
-            Omega[i] = self.omega*Omega[i-1]
-            mu[i] = self.mu*mu[i-1]
+            Omega[i] = self.prop_state[3]*Omega[i-1]
+            mu[i] = self.prop_state[4]*mu[i-1]
         p = self.att[0]
         q = self.att[1]
-        vind = self.vi
+        vind = self.prop_state[6]
         alpha = self.alpha_s
   #WARNING!! DO NOT TOUCH LOOK OR ATTEMPT TO UNDERSTAND THIS:
-        self.a0 = (17860.69768 - 9.085245727e-8 * Omega[3] * mu[1] * q +
+        self.prop_state[0] = (17860.69768 - 9.085245727e-8 * Omega[3] * mu[1] * q +
            5.075429983e-14 * Omega[5] * mu[2] * vind -
            1.201149295e-15 * Omega[5] * mu[3] * p -
            3.287355978e-15 * Omega[6] * alpha * mu[3] -
@@ -68,14 +71,14 @@ class Propeller:
         Omega = np.ones(7)
         mu = np.ones(7)
         for i in range(1,7):
-            Omega[i] = self.omega*Omega[i-1]
-            mu[i] = self.mu*mu[i-1]
+            Omega[i] = self.prop_state[3]*Omega[i-1]
+            mu[i] = self.prop_state[4]*mu[i-1]
         p = self.att[0]
         q = self.att[1]
-        vind = self.vi
+        vind = self.prop_state[6]
         alpha = self.alpha_s
   #WARNING!! DO NOT TOUCH LOOK OR ATTEMPT TO UNDERSTAND THIS:
-        self.a1s = 4.543463022e-14 * (0.4564908655 * Omega[5] * mu[3] + 0.7417976561 * Omega[5] * mu[1] +
+        self.prop_state[1] = 4.543463022e-14 * (0.4564908655 * Omega[5] * mu[3] + 0.7417976561 * Omega[5] * mu[1] +
            4.491002632e7 * Omega[2] * q + 0.9648437489 * Omega[4] * p +
            1.559168274e10 * Omega[1] * mu[1] - 58779.37391 * Omega[3] * mu[3] +
            1.398833618e6 * Omega[3] * mu[1] + 6.498797591e6 * Omega[2] * p +
@@ -96,14 +99,14 @@ class Propeller:
         Omega = np.ones(7)
         mu = np.ones(7)
         for i in range(1,7):
-            Omega[i] = self.omega*Omega[i-1]
-            mu[i] = self.mu*mu[i-1]
+            Omega[i] = self.prop_state[3]*Omega[i-1]
+            mu[i] = self.prop_state[4]*mu[i-1]
         p = self.att[0]
         q = self.att[1]
-        vind = self.vi
+        vind = self.prop_state[6]
         alpha = self.alpha_s
       #WARNING!! DO NOT TOUCH LOOK OR ATTEMPT TO UNDERSTAND THIS:
-        self.b1s = 3.034482349e-15 * Omega[1] * (14.44639117 * Omega[4] * q + 0.6202900305 * Omega[5] * mu[5] +
+        self.prop_state[2] = 3.034482349e-15 * Omega[1] * (14.44639117 * Omega[4] * q + 0.6202900305 * Omega[5] * mu[5] +
            1.177725817e17 * mu[1] * vind - 1.208793256 * Omega[5] * mu[3] -
            1.157259683 * Omega[5] * mu[1] + 9.730505319e7 * Omega[2] * q -
            3.482171723e15 * Omega[1] * mu[1] - 3086.424696 * Omega[3] * mu[3] -
@@ -143,24 +146,24 @@ class Propeller:
       v2 = Vh*(k0 + k1*(r) + k2*(r)**2 + k3*(r)**3 + k4*(r)**4)
       return v2
     def _BEM_vi_costfunc(self, _vi):
-      Vhor = self.mu*(self.omega*blade_params['radius'])
-      Vver = self.vel[2] - _vi
-      self.vi = _v1
+      Vhor = self.prop_state[4]*(self.prop_state[3]*blade_params['radius'])
+      Vver = self.prop_state[5] - _vi
+      self.prop_state[6] = _v1
       T_BEM = BEM_T_calc()
       T_M =  2 * rho_air * A * _vi * np.sqrt(Vhor**2 + Vver**2)
       res = T_BEM - T_M
       return res
     def _BEM_calc_vi(self):
       v1 = fsolve(_BEM_vi_costfunc,vi_init,xtol=etol, maxfev=500)[0]
-      v_ratio = self.vel[2]/v1
+      v_ratio = self.prop_state[5]/v1
       if v_ratio >= 0 and v_ratio <= 2:
-        vz = -self.vel[2]
-        self.vel[2] = 0;
+        vz = -self.prop_state[5]
+        self.prop_state[5] = 0;
         vh=fsolve(_BEM_vi_costfunc,vi_init,xtol=etol, maxfev=500)[0]
         v2 = _BEM_VRS_correction(vz,vh)
         v1 = max(v1,v2)
-        self.vel[2] = -vz
-      self.vi = v1
+        self.prop_state[5] = -vz
+      self.prop_state[6] = v1
     def _update(self):
         _BEM_calc_vi()
         _BEM_calc_a0()
@@ -174,12 +177,12 @@ class Propeller:
         sgn2 = self.dir
         sgn1 = -self.dir
         self.Force = [
-          -(H + np.sin(self.a1s)*T),
-          sgn1*np.sin(self.b1s)*T,
-          -T*np.cos(self.a0)
+          -(H + np.sin(self.prop_state[1])*T),
+          sgn1*np.sin(self.prop_state[2])*T,
+          -T*np.cos(self.prop_state[0])
         self.Torque = [ 
-          sgn1*blade_params['k_beta']*self.b1s,
-          blade_params['k_beta']*self.a1s,
+          sgn1*blade_params['k_beta']*self.prop_state[2],
+          blade_params['k_beta']*self.prop_state[1],
           sgn2*Q]
 
     #public functions
@@ -191,13 +194,10 @@ class Propeller:
         Vhor = np.sqrt(self.vel[0]**2 + self.vel[1]**2)
 
         #reset state
-        self.a0   = 0
-        self.a1s  = 0
-        self.b1s  = 0
-        self.omega = motOmega
-        self.mu    = Vhor/(motOmega*R)
-        self.Vz    = self.vel[2]
-        self.vi    = 0
+        self.prop_state[:] = [0]*7
+        self.prop_state[3]    = motOmega
+        self.prop_state[4]    = Vhor/(motOmega*R)
+        self.prop_state[5]    = self.vel[2]
         _update()
 
     def GetForce(self):
