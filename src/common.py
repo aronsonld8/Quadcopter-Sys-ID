@@ -17,6 +17,8 @@ rho_air = 1.204
 dx = 0.078  #m
 dy = 0.1    #m  
 dz = 0.027  #m
+INTEGRATOR_RADIAL_POINTS = 21
+INTEGRATOR_AZIMUTHAL_POINTS = 20
 
 #plotting funcs
 def print_stats3(vector3, name):
